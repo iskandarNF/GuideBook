@@ -1,5 +1,6 @@
 package tj.iskandar.guidebook.viewmodel
 
+import android.nfc.tech.MifareUltralight.PAGE_SIZE
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -24,48 +25,53 @@ class GuideBookViewModel @Inject constructor(
     private val api:GuideApi
 ) : ViewModel() {
 
-    var bookList: GuideBookUIState by mutableStateOf(GuideBookUIState())
 
+    var bookList: GuideBookUIState by mutableStateOf(GuideBookUIState())
 
     var currentItems: List<GuideEntity> = emptyList()
     var totalCount: Int = 0
     var offset: Int = 0
 
-    val items = MutableStateFlow(currentItems)
-    val isLoading = MutableStateFlow(false)
-    val hasMoreItems: Boolean
-        get() = currentItems.size < totalCount
+    private val _isLoading = MutableLiveData(false)
+    val isLoading: LiveData<Boolean>
+        get() = _isLoading
 
+    private val _hasMoreItems = MutableLiveData(true)
+    val hasMoreItems: LiveData<Boolean>
+        get() = _hasMoreItems
+
+    private val _items = MutableLiveData(currentItems)
+    val items: LiveData<List<GuideEntity>>
+        get() = _items
 
     init {
         getBooks()
         loadMoreItems()
     }
+
     fun loadMoreItems() {
-        if (isLoading.value || !hasMoreItems) {
+        if (_isLoading.value == true || _hasMoreItems.value == false) {
             return
         }
 
-        isLoading.value = true
+        _isLoading.value = true
 
         viewModelScope.launch {
             try {
-                val items = db.postDao().getItems(offset, PAGE_SIZE)
+                val items = db.postDao().getItems(offset, 3)
                 currentItems = currentItems + items
-                offset += PAGE_SIZE
+                offset += items.size // Update offset based on the number of items fetched
                 totalCount = db.postDao().getCount()
-                this@GuideBookViewModel.items.value = currentItems
+                _items.value = currentItems
+                _hasMoreItems.value = currentItems.size < totalCount
             } catch (e: Exception) {
                 // Handle the error
             } finally {
-                isLoading.value = false
+                _isLoading.value = false
             }
         }
     }
 
-    companion object {
-        const val PAGE_SIZE = 3
-    }
 
      fun getBooks() {
         viewModelScope.launch {

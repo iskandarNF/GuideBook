@@ -34,15 +34,23 @@ import java.net.URLEncoder
 
 @SuppressLint("UnrememberedMutableState")
 @Composable
-fun MainScreen(navController:NavController,viewModel: GuideBookViewModel = hiltViewModel()) {
+fun MainScreen(navController: NavController, viewModel: GuideBookViewModel = hiltViewModel()) {
     val users by viewModel.posts.observeAsState(emptyList())
 
-    val isLoading by viewModel.isLoading.collectAsState()
+    val isLoading by viewModel.isLoading.observeAsState(false)
     val lazyListState = rememberLazyListState()
     val currentItems by remember { derivedStateOf { viewModel.currentItems } }
-    LaunchedEffect(key1 = viewModel.hasMoreItems, key2 = isLoading, key3 = currentItems) {
+
+    val hasMoreItems by viewModel.hasMoreItems.asFlow().collectAsState(initial = false)
+
+
+    LaunchedEffect(
+        key1 = hasMoreItems,
+        key2 = isLoading,
+        key3 = currentItems
+    ) {
         val lastVisibleItem = lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()
-        if (lastVisibleItem != null && lastVisibleItem.index == currentItems.lastIndex && viewModel.hasMoreItems && !isLoading) {
+        if (lastVisibleItem != null && lastVisibleItem.index == currentItems.lastIndex && hasMoreItems) {
             delay(100)
             viewModel.loadMoreItems()
         }
@@ -50,36 +58,22 @@ fun MainScreen(navController:NavController,viewModel: GuideBookViewModel = hiltV
 
     Scaffold() {
         Column(Modifier.fillMaxSize()) {
-
-            Column {
-                LazyColumn(state = lazyListState) {
-                    itemsIndexed(items = users) { index, item ->
-                        // Display the item
-                        ItemBook(item = item, onClick = {
-                            val urlEncode =
-                                URLEncoder.encode("https://guidebook.com"+it, "utf-8")
-                            val route = NavigationGuide.WebViewScreen.withArgs(urlEncode)
-                            navController.navigate(route = route)
-                        })
-                        Spacer(modifier = Modifier.height(16.dp))
-                        if (index == users.lastIndex - 1 && viewModel.hasMoreItems && !isLoading) {
-
-                                Box(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator()
-                                }
-
-
-                        }
-                    }
+            LazyColumn(state = lazyListState) {
+                itemsIndexed(items = users) { index, item ->
+                    // Display the item
+                    ItemBook(item = item, onClick = {
+                        val urlEncode = URLEncoder.encode("https://guidebook.com" + it, "utf-8")
+                        val route = NavigationGuide.WebViewScreen.withArgs(urlEncode)
+                        navController.navigate(route = route)
+                    })
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
-
             }
         }
     }
-
-
 }
+
+
+
+
 
